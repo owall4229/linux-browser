@@ -2,9 +2,69 @@
 
 from __future__ import annotations
 
+import os
 import sys
 from urllib.parse import quote
 
+
+def _auto_select_platform() -> None:
+    """Auto-detect and select the best Qt platform plugin.
+    
+    Uses offscreen rendering for headless environments, Wayland for Wayland
+    sessions, and XCB for X11. Falls back to offscreen if a display is set
+    but not accessible.
+    
+    MUST be called before importing any PySide6 modules.
+    """
+    if "QT_QPA_PLATFORM" in os.environ:
+        return  # User has explicitly set the platform
+    
+    # Check for Wayland
+    if os.environ.get("XDG_SESSION_TYPE") == "wayland" or os.environ.get("WAYLAND_DISPLAY"):
+        os.environ["QT_QPA_PLATFORM"] = "wayland"
+        return
+    
+    # Check for a valid X display
+    display = os.environ.get("DISPLAY", "").strip()
+    if not display:
+        # No DISPLAY set; use offscreen for headless systems
+        os.environ["QT_QPA_PLATFORM"] = "offscreen"
+        return
+    
+    # DISPLAY is set; try to verify it's actually accessible
+    # In containers, DISPLAY might be set but the server doesn't exist
+    try:
+        import socket
+        # Parse DISPLAY (format: [host]:display[.screen])
+        if display.startswith(":"):
+            host = "localhost"
+            disp_part = display[1:].split(".")[0]
+        elif ":" in display:
+            host, disp_part = display.rsplit(":", 1)
+            disp_part = disp_part.split(".")[0]
+        else:
+            host = "localhost"
+            disp_part = display
+        
+        try:
+            port = 6000 + int(disp_part)
+            sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+            sock.settimeout(0.5)
+            sock.connect((host, port))
+            sock.close()
+            # X server is accessible; use XCB (default)
+        except (ConnectionRefusedError, socket.timeout, OSError, ValueError):
+            # X server not accessible; fall back to offscreen
+            os.environ["QT_QPA_PLATFORM"] = "offscreen"
+    except Exception:
+        # If anything goes wrong with the check, fall back to offscreen
+        os.environ["QT_QPA_PLATFORM"] = "offscreen"
+
+
+# Auto-select platform BEFORE importing PySide6
+_auto_select_platform()
+
+# Now safe to import Qt modules
 from PySide6.QtCore import QUrl
 from PySide6.QtGui import QAction, QKeySequence
 from PySide6.QtWidgets import QApplication, QLineEdit, QMainWindow, QToolBar

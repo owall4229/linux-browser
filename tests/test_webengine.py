@@ -1,6 +1,10 @@
+import os
 import sys
 import unittest
 
+# Set platform BEFORE importing PySide6
+if "QT_QPA_PLATFORM" not in os.environ:
+    os.environ["QT_QPA_PLATFORM"] = "offscreen"
 
 try:
     from PySide6.QtCore import QEventLoop, QTimer
