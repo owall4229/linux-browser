@@ -10,7 +10,7 @@ except ImportError:
     QWebEngineView = None
 
 
-@unittest.skipUnless(QWebEngineView, "PySide6-WebEngine is not installed")
+@unittest.skipUnless(QWebEngineView, "PySide6 with WebEngine support is not installed")
 class WebEngineSmokeTest(unittest.TestCase):
     @classmethod
     def setUpClass(cls) -> None:
